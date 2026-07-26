@@ -72,6 +72,10 @@ import com.drynav.app.presentation.components.CircleBackButton
 import com.drynav.app.presentation.components.DryNavBottomBar
 import com.drynav.app.presentation.components.PillButton
 import com.drynav.app.presentation.navigation.Routes
+import com.drynav.app.presentation.tutorial.TutorialCelebrationOverlay
+import com.drynav.app.presentation.tutorial.TutorialOverlay
+import com.drynav.app.presentation.tutorial.TutorialViewModel
+import com.drynav.app.presentation.tutorial.tutorialTarget
 import com.drynav.app.presentation.theme.AccentGreen
 import com.drynav.app.presentation.theme.LogoutRed
 import com.drynav.app.presentation.theme.Mist
@@ -101,6 +105,7 @@ fun ProfileScreen(
     var showMoodPicker by rememberSaveable { mutableStateOf(false) }
     var showChangePassword by rememberSaveable { mutableStateOf(false) }
     var showDeleteAccount by rememberSaveable { mutableStateOf(false) }
+    val tutorialManager = hiltViewModel<TutorialViewModel>().manager
 
     LaunchedEffect(uiState.message) {
         uiState.message?.let {
@@ -143,6 +148,7 @@ fun ProfileScreen(
         googleReauthLauncher.launch(client.signInIntent)
     }
 
+    Box(Modifier.fillMaxSize()) {
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
@@ -248,7 +254,8 @@ fun ProfileScreen(
                         iconTint = NavBlue,
                         title = "Profile Details",
                         subtitle = "Click here to edit your profile details",
-                        onClick = { showEditName = true }
+                        onClick = { showEditName = true },
+                        modifier = Modifier.tutorialTarget(tutorialManager, "profile_details_row")
                     )
                     SettingsRow(
                         icon = Icons.Outlined.EmojiEmotions,
@@ -256,7 +263,8 @@ fun ProfileScreen(
                         title = "Mood",
                         subtitle = uiState.mood?.label?.let { "Currently: $it" }
                             ?: "Pick the character other drivers see",
-                        onClick = { showMoodPicker = true }
+                        onClick = { showMoodPicker = true },
+                        modifier = Modifier.tutorialTarget(tutorialManager, "mood_row")
                     )
                     // A Google-linked account has no DryNav-managed password
                     // to change — this row simply doesn't exist for it.
@@ -316,6 +324,14 @@ fun ProfileScreen(
                     )
                 }
             }
+        }
+    }
+
+        if (tutorialManager.isActive && tutorialManager.currentStep?.route == Routes.PROFILE) {
+            TutorialOverlay(tutorialManager)
+        }
+        if (tutorialManager.showCelebration) {
+            TutorialCelebrationOverlay(onDismiss = tutorialManager::dismissCelebration)
         }
     }
 
@@ -725,12 +741,13 @@ private fun SettingsRow(
     title: String,
     subtitle: String,
     onClick: (() -> Unit)? = null,
-    trailing: (@Composable () -> Unit)? = null
+    trailing: (@Composable () -> Unit)? = null,
+    modifier: Modifier = Modifier
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp),
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)

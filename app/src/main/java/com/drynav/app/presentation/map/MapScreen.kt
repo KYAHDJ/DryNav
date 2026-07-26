@@ -96,6 +96,12 @@ import com.drynav.app.domain.model.Mood
 import com.drynav.app.domain.model.SavedPlace
 import com.drynav.app.presentation.components.LoadingOverlay
 import com.drynav.app.presentation.components.PillButton
+import com.drynav.app.presentation.navigation.Routes
+import com.drynav.app.presentation.tutorial.TutorialCelebrationOverlay
+import com.drynav.app.presentation.tutorial.TutorialManager
+import com.drynav.app.presentation.tutorial.TutorialOverlay
+import com.drynav.app.presentation.tutorial.TutorialViewModel
+import com.drynav.app.presentation.tutorial.tutorialTarget
 import com.drynav.app.presentation.theme.AccentGreen
 import com.drynav.app.presentation.theme.Amber
 import com.drynav.app.presentation.theme.AmberTint
@@ -145,6 +151,7 @@ fun MapScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     var showLayersSheet by rememberSaveable { mutableStateOf(false) }
+    val tutorialManager = hiltViewModel<TutorialViewModel>().manager
 
     // ---- Mapbox singletons scoped to this screen ----
     val mapboxNavigation: MapboxNavigation = remember {
@@ -379,6 +386,7 @@ fun MapScreen(
         }
     }
 
+    Box(Modifier.fillMaxSize()) {
     Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }) { padding ->
         Box(
             modifier = Modifier
@@ -413,7 +421,8 @@ fun MapScreen(
                     onTravelMode = viewModel::setTravelMode,
                     onNavigateToPin = viewModel::navigateToPin,
                     onDismissPin = viewModel::dismissPin,
-                    onRecenter = ::recenterCamera
+                    onRecenter = ::recenterCamera,
+                    tutorialManager = tutorialManager
                 )
             }
 
@@ -486,6 +495,14 @@ fun MapScreen(
             }
 
             LoadingOverlay(visible = !uiState.floodsLoaded)
+        }
+    }
+
+        if (tutorialManager.isActive && tutorialManager.currentStep?.route == Routes.MAP) {
+            TutorialOverlay(tutorialManager)
+        }
+        if (tutorialManager.showCelebration) {
+            TutorialCelebrationOverlay(onDismiss = tutorialManager::dismissCelebration)
         }
     }
 
@@ -706,7 +723,8 @@ private fun BrowseOverlay(
     onTravelMode: (TravelMode) -> Unit,
     onNavigateToPin: () -> Unit,
     onDismissPin: () -> Unit,
-    onRecenter: () -> Unit
+    onRecenter: () -> Unit,
+    tutorialManager: TutorialManager
 ) {
     var isSearchFocused by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
@@ -729,7 +747,9 @@ private fun BrowseOverlay(
                 Surface(
                     color = Color(0xE6455A64),
                     shape = CircleShape,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier
+                        .weight(1f)
+                        .tutorialTarget(tutorialManager, "search_bar")
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -990,6 +1010,7 @@ private fun BrowseOverlay(
                 .align(Alignment.TopEnd)
                 .statusBarsPadding()
                 .padding(top = 122.dp, end = 14.dp)
+                .tutorialTarget(tutorialManager, "recenter_button")
         ) {
             IconButton(onClick = onRecenter) {
                 Icon(
@@ -1046,7 +1067,8 @@ private fun BrowseOverlay(
                         } else {
                             TravelModeChips(
                                 selected = uiState.travelMode,
-                                onSelect = onTravelMode
+                                onSelect = onTravelMode,
+                                modifier = Modifier.tutorialTarget(tutorialManager, "travel_mode_chips")
                             )
                         }
                     }
@@ -1054,7 +1076,10 @@ private fun BrowseOverlay(
                         color = Color(0x33FFFFFF),
                         modifier = Modifier.padding(vertical = 10.dp)
                     )
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.tutorialTarget(tutorialManager, "navigate_prompt")
+                    ) {
                         Icon(
                             Icons.Default.Search,
                             contentDescription = null,
@@ -1078,9 +1103,10 @@ private fun BrowseOverlay(
 @Composable
 private fun TravelModeChips(
     selected: TravelMode,
-    onSelect: (TravelMode) -> Unit
+    onSelect: (TravelMode) -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = modifier) {
         TravelMode.entries.forEach { mode ->
             val isSelected = mode == selected
             Surface(

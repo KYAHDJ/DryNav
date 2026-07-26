@@ -1,13 +1,20 @@
 package com.drynav.app.presentation.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
+import com.drynav.app.data.presence.PresenceLifecycleViewModel
+import com.drynav.app.presentation.tutorial.TutorialViewModel
 import com.drynav.app.presentation.admin.AdminScreen
 import com.drynav.app.presentation.auth.LoginScreen
 import com.drynav.app.presentation.auth.OtpScreen
@@ -27,6 +34,37 @@ import com.drynav.app.presentation.splash.SplashScreen
 @Composable
 fun DryNavGraph() {
     val navController = rememberNavController()
+
+    // App-wide live presence: on for as long as the app is actually in the
+    // foreground (ON_START/ON_STOP), regardless of which screen is showing —
+    // not tied to any single destination. See PresenceManager for why.
+    val presenceLifecycleViewModel: PresenceLifecycleViewModel = hiltViewModel()
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> presenceLifecycleViewModel.manager.start()
+                Lifecycle.Event.ON_STOP -> presenceLifecycleViewModel.manager.stop()
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    // Full-app guided tour: forces navigation to whatever screen the
+    // current tutorial step lives on. The tour itself starts from the Home
+    // screen (see MainMenuScreen) and only ever advances via its own
+    // Back/Next/Skip — the full-screen overlay blocks every other touch —
+    // so this never fights real user navigation, only drives the tour.
+    val tutorialManager = hiltViewModel<TutorialViewModel>().manager
+    LaunchedEffect(tutorialManager.isActive, tutorialManager.stepIndex) {
+        if (!tutorialManager.isActive) return@LaunchedEffect
+        val targetRoute = tutorialManager.currentStep?.route ?: return@LaunchedEffect
+        if (navController.currentDestination?.route != targetRoute) {
+            navController.navigate(targetRoute) { launchSingleTop = true }
+        }
+    }
 
     // Bottom-bar navigation: keep HOME as the base of the stack.
     fun navigateTab(route: String) {

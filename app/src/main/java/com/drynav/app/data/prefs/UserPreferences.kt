@@ -29,6 +29,34 @@ class UserPreferences @Inject constructor(
         val NOTIFICATIONS = booleanPreferencesKey("notifications_enabled")
         val RECENT_SEARCHES = stringPreferencesKey("recent_searches")
         val MOOD = stringPreferencesKey("mood")
+        val TUTORIAL_SEEN_UIDS = stringPreferencesKey("tutorial_seen_uids")
+    }
+
+    // ------------------------------------------------------------------
+    // Guided tour — once per account, not once per app open. A fresh
+    // install or a cleared-data DataStore file has none of these ids, so
+    // the tour plays again; an account whose id is already in here never
+    // sees it again on that install. Stored as a set of ids (not a single
+    // flag) so signing into a DIFFERENT/new account on the same install
+    // still gets the tour once, even if some other account already saw it.
+    // ------------------------------------------------------------------
+
+    suspend fun hasSeenTutorial(userId: String): Boolean =
+        context.dataStore.data.first()[Keys.TUTORIAL_SEEN_UIDS]
+            ?.split(',')
+            ?.contains(userId)
+            ?: false
+
+    suspend fun markTutorialSeen(userId: String) {
+        context.dataStore.edit { prefs ->
+            val current = prefs[Keys.TUTORIAL_SEEN_UIDS]
+                ?.split(',')
+                ?.filter { it.isNotBlank() }
+                ?.toMutableSet()
+                ?: mutableSetOf()
+            current.add(userId)
+            prefs[Keys.TUTORIAL_SEEN_UIDS] = current.joinToString(",")
+        }
     }
 
     val onboardingSeen: Flow<Boolean> =

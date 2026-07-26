@@ -48,6 +48,11 @@ import com.drynav.app.presentation.components.LoadingOverlay
 import com.drynav.app.presentation.components.PillButton
 import com.drynav.app.presentation.navigation.Routes
 import com.drynav.app.presentation.theme.TealPrimary
+import com.drynav.app.presentation.tutorial.TutorialCelebrationOverlay
+import com.drynav.app.presentation.tutorial.TutorialOverlay
+import com.drynav.app.presentation.tutorial.TutorialViewModel
+import com.drynav.app.presentation.tutorial.tutorialTarget
+import com.mapbox.geojson.Point
 import com.mapbox.maps.CameraOptions
 import com.mapbox.maps.MapView
 import com.mapbox.maps.extension.style.layers.properties.generated.IconAnchor
@@ -70,6 +75,7 @@ fun MapHomeScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val mapView = remember { MapView(context) }
     var showLayersSheet by rememberSaveable { mutableStateOf(false) }
+    val tutorialManager = hiltViewModel<TutorialViewModel>().manager
 
     // Own mood character — shown here too since this screen is just a
     // stationary preview (nothing moving until "Start Navigation" is
@@ -83,6 +89,13 @@ fun MapHomeScreen(
     val moodBitmaps = remember {
         Mood.entries.associateWith { mood ->
             ContextCompat.getDrawable(context, mood.iconRes)!!.toBitmap()
+        }
+    }
+
+    // Other online users' live characters — same billboarded approach.
+    val othersAnnotationManager: PointAnnotationManager = remember {
+        mapView.annotations.createPointAnnotationManager().apply {
+            iconRotationAlignment = IconRotationAlignment.VIEWPORT
         }
     }
 
@@ -133,6 +146,21 @@ fun MapHomeScreen(
         }
     }
 
+    LaunchedEffect(uiState.otherPresences) {
+        othersAnnotationManager.deleteAll()
+        uiState.otherPresences.forEach { presence ->
+            val bitmap = moodBitmaps[Mood.fromName(presence.mood)] ?: return@forEach
+            othersAnnotationManager.create(
+                PointAnnotationOptions()
+                    .withPoint(Point.fromLngLat(presence.longitude, presence.latitude))
+                    .withIconImage(bitmap)
+                    .withIconAnchor(IconAnchor.BOTTOM)
+                    .withIconSize(0.35)
+            )
+        }
+    }
+
+    Box(Modifier.fillMaxSize()) {
     Scaffold(
         bottomBar = {
             DryNavBottomBar(currentRoute = Routes.MAP_HOME, onNavigate = onNavigate)
@@ -185,6 +213,7 @@ fun MapHomeScreen(
                     .align(Alignment.TopEnd)
                     .statusBarsPadding()
                     .padding(top = 68.dp, end = 14.dp)
+                    .tutorialTarget(tutorialManager, "layers_button")
             ) {
                 IconButton(onClick = { showLayersSheet = true }) {
                     Icon(
@@ -230,10 +259,20 @@ fun MapHomeScreen(
                     PillButton(
                         text = "Start Navigation",
                         onClick = { onNavigate(Routes.MAP) },
-                        modifier = Modifier.fillMaxWidth(0.66f)
+                        modifier = Modifier
+                            .fillMaxWidth(0.66f)
+                            .tutorialTarget(tutorialManager, "start_navigation_button")
                     )
                 }
             }
+        }
+    }
+
+        if (tutorialManager.isActive && tutorialManager.currentStep?.route == Routes.MAP_HOME) {
+            TutorialOverlay(tutorialManager)
+        }
+        if (tutorialManager.showCelebration) {
+            TutorialCelebrationOverlay(onDismiss = tutorialManager::dismissCelebration)
         }
     }
 

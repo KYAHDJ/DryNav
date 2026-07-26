@@ -89,9 +89,14 @@ import com.drynav.app.presentation.map.applyDryNavMapDefaults
 import com.drynav.app.presentation.map.setDefaultPuckEnabled
 import com.drynav.app.presentation.map.updateFloodHeatmap
 import com.drynav.app.presentation.navigation.Routes
+import com.drynav.app.presentation.tutorial.TutorialCelebrationOverlay
+import com.drynav.app.presentation.tutorial.TutorialOverlay
+import com.drynav.app.presentation.tutorial.TutorialViewModel
+import com.drynav.app.presentation.tutorial.tutorialTarget
 import com.drynav.app.presentation.theme.Amber
 import com.drynav.app.presentation.theme.FloodRed
 import com.drynav.app.presentation.theme.TealPrimary
+import com.mapbox.geojson.Point
 import com.mapbox.maps.CameraOptions
 import com.mapbox.maps.MapView
 import com.mapbox.maps.ScreenCoordinate
@@ -122,6 +127,15 @@ fun ReportFloodScreen(
     // Collapsed by default so the map is fully visible; tap the handle to
     // bring the form back up when you're ready to fill it in.
     var sheetExpanded by rememberSaveable { mutableStateOf(false) }
+    val tutorialManager = hiltViewModel<TutorialViewModel>().manager
+    // The photo/severity/submit targets live inside the collapsible sheet —
+    // force it open for the whole Report leg of the tour so they're all
+    // actually on screen to spotlight.
+    LaunchedEffect(tutorialManager.isActive, tutorialManager.stepIndex) {
+        if (tutorialManager.isActive && tutorialManager.currentStep?.route == Routes.REPORT) {
+            sheetExpanded = true
+        }
+    }
 
     // No hard cap on how many photos can be attached.
     val photoPicker = rememberLauncherForActivityResult(
@@ -144,6 +158,13 @@ fun ReportFloodScreen(
     val moodBitmaps = remember {
         Mood.entries.associateWith { mood ->
             ContextCompat.getDrawable(context, mood.iconRes)!!.toBitmap()
+        }
+    }
+
+    // Other online users' live characters — same billboarded approach.
+    val othersAnnotationManager: PointAnnotationManager = remember {
+        mapView.annotations.createPointAnnotationManager().apply {
+            iconRotationAlignment = IconRotationAlignment.VIEWPORT
         }
     }
 
@@ -229,6 +250,21 @@ fun ReportFloodScreen(
             )
         }
     }
+
+    LaunchedEffect(uiState.otherPresences) {
+        othersAnnotationManager.deleteAll()
+        uiState.otherPresences.forEach { presence ->
+            val bitmap = moodBitmaps[Mood.fromName(presence.mood)] ?: return@forEach
+            othersAnnotationManager.create(
+                PointAnnotationOptions()
+                    .withPoint(Point.fromLngLat(presence.longitude, presence.latitude))
+                    .withIconImage(bitmap)
+                    .withIconAnchor(IconAnchor.BOTTOM)
+                    .withIconSize(0.35)
+            )
+        }
+    }
+
     // Collapse the form the moment drawing starts so the whole map is
     // visible while painting; the user can still pull it back up anytime.
     LaunchedEffect(uiState.drawMode) {
@@ -248,6 +284,7 @@ fun ReportFloodScreen(
         }
     }
 
+    Box(Modifier.fillMaxSize()) {
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
@@ -367,26 +404,32 @@ fun ReportFloodScreen(
                     icon = Icons.Default.Brush,
                     contentDescription = if (uiState.drawMode) "Stop drawing" else "Draw flooded road",
                     active = uiState.drawMode,
-                    onClick = viewModel::toggleDrawMode
+                    onClick = viewModel::toggleDrawMode,
+                    modifier = Modifier.tutorialTarget(tutorialManager, "brush_tool")
                 )
-                BrushToolButton(
-                    icon = Icons.Default.Undo,
-                    contentDescription = "Undo last road",
-                    enabled = uiState.strokes.isNotEmpty(),
-                    onClick = viewModel::undoStroke
-                )
-                BrushToolButton(
-                    icon = Icons.Default.Redo,
-                    contentDescription = "Redo",
-                    enabled = uiState.redoStack.isNotEmpty(),
-                    onClick = viewModel::redoStroke
-                )
-                BrushToolButton(
-                    icon = Icons.Default.Delete,
-                    contentDescription = "Clear all roads",
-                    enabled = uiState.strokes.isNotEmpty(),
-                    onClick = viewModel::clearStrokes
-                )
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.tutorialTarget(tutorialManager, "history_buttons")
+                ) {
+                    BrushToolButton(
+                        icon = Icons.Default.Undo,
+                        contentDescription = "Undo last road",
+                        enabled = uiState.strokes.isNotEmpty(),
+                        onClick = viewModel::undoStroke
+                    )
+                    BrushToolButton(
+                        icon = Icons.Default.Redo,
+                        contentDescription = "Redo",
+                        enabled = uiState.redoStack.isNotEmpty(),
+                        onClick = viewModel::redoStroke
+                    )
+                    BrushToolButton(
+                        icon = Icons.Default.Delete,
+                        contentDescription = "Clear all roads",
+                        enabled = uiState.strokes.isNotEmpty(),
+                        onClick = viewModel::clearStrokes
+                    )
+                }
             }
 
             // ---- Bottom sheet: collapsible so the map stays visible ----
@@ -485,6 +528,7 @@ fun ReportFloodScreen(
                                 .size(88.dp)
                                 .clip(RoundedCornerShape(14.dp))
                                 .border(2.dp, TealPrimary, RoundedCornerShape(14.dp))
+                                .tutorialTarget(tutorialManager, "photo_picker")
                                 .clickable {
                                     photoPicker.launch(
                                         PickVisualMediaRequest(
@@ -524,7 +568,10 @@ fun ReportFloodScreen(
                     )
                     Spacer(Modifier.height(8.dp))
                     // Mockup severity buttons: amber = passable/slow, red = blocked.
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.tutorialTarget(tutorialManager, "severity_toggle")
+                    ) {
                         val passableSelected = uiState.severity == FloodSeverity.PASSABLE
                         val blockedSelected = uiState.severity == FloodSeverity.IMPASSABLE
                         Box(
@@ -564,7 +611,9 @@ fun ReportFloodScreen(
                         text = "REPORT",
                         loading = uiState.isSubmitting,
                         onClick = viewModel::submit,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .tutorialTarget(tutorialManager, "submit_button"),
                         fontSize = 18
                     )
                     Spacer(Modifier.height(4.dp))
@@ -578,6 +627,14 @@ fun ReportFloodScreen(
             )
         }
     }
+
+        if (tutorialManager.isActive && tutorialManager.currentStep?.route == Routes.REPORT) {
+            TutorialOverlay(tutorialManager)
+        }
+        if (tutorialManager.showCelebration) {
+            TutorialCelebrationOverlay(onDismiss = tutorialManager::dismissCelebration)
+        }
+    }
 }
 
 /** One round button in the always-visible brush toolbar (draw/undo/redo/clear). */
@@ -587,7 +644,8 @@ private fun BrushToolButton(
     contentDescription: String,
     onClick: () -> Unit,
     active: Boolean = false,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    modifier: Modifier = Modifier
 ) {
     Surface(
         onClick = onClick,
@@ -599,7 +657,7 @@ private fun BrushToolButton(
             else -> Color(0x66455A64)
         },
         shadowElevation = 4.dp,
-        modifier = Modifier.size(46.dp)
+        modifier = modifier.size(46.dp)
     ) {
         Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
             Icon(

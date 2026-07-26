@@ -24,7 +24,9 @@ data class MainMenuUiState(
     val slowCount: Int = 0,
     val loaded: Boolean = false,
     /** The signed-in user's real display name — never mock data. */
-    val displayName: String = ""
+    val displayName: String = "",
+    /** Drives the once-per-account guided-tour check — see TutorialManager. */
+    val userId: String = ""
 )
 
 /** ~5 km — "nearby" for a flood-alert summary, not a citywide count. */
@@ -39,7 +41,10 @@ class MainMenuViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
-        MainMenuUiState(displayName = authRepository.currentUser?.displayName.orEmpty())
+        MainMenuUiState(
+            displayName = authRepository.currentUser?.displayName.orEmpty(),
+            userId = authRepository.currentUser?.uid.orEmpty()
+        )
     )
     val uiState: StateFlow<MainMenuUiState> = _uiState.asStateFlow()
 

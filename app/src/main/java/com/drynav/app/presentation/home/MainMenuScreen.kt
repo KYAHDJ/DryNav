@@ -28,6 +28,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,6 +47,11 @@ import com.drynav.app.R
 import com.drynav.app.presentation.components.AutoSizeText
 import com.drynav.app.presentation.components.DryNavBottomBar
 import com.drynav.app.presentation.navigation.Routes
+import com.drynav.app.presentation.tutorial.TutorialCelebrationOverlay
+import com.drynav.app.presentation.tutorial.TutorialOverlay
+import com.drynav.app.presentation.tutorial.TutorialViewModel
+import com.drynav.app.presentation.tutorial.TutorialWelcomeDialog
+import com.drynav.app.presentation.tutorial.tutorialTarget
 import com.drynav.app.presentation.theme.FloodRed
 import com.drynav.app.presentation.theme.TealDark
 import com.drynav.app.presentation.theme.TealPrimary
@@ -58,7 +64,12 @@ fun MainMenuScreen(
     viewModel: MainMenuViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val tutorialManager = hiltViewModel<TutorialViewModel>().manager
+    LaunchedEffect(uiState.userId) {
+        if (uiState.userId.isNotBlank()) tutorialManager.checkForUser(uiState.userId)
+    }
 
+    Box(Modifier.fillMaxSize()) {
     Scaffold(
         containerColor = Color.White,
         bottomBar = {
@@ -135,6 +146,7 @@ fun MainMenuScreen(
                             Brush.linearGradient(listOf(TealPrimary, TealDark)),
                             RoundedCornerShape(28.dp)
                         )
+                        .tutorialTarget(tutorialManager, "flood_card")
                 ) {
                     Column(
                         modifier = Modifier
@@ -243,7 +255,9 @@ fun MainMenuScreen(
                     title = "Navigate",
                     subtitle = "Search a destination",
                     onClick = { onNavigate(Routes.MAP_HOME) },
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier
+                        .weight(1f)
+                        .tutorialTarget(tutorialManager, "navigate_button")
                 )
                 ActionRow(
                     icon = Icons.Filled.WarningAmber,
@@ -251,10 +265,27 @@ fun MainMenuScreen(
                     title = "Report a Flood",
                     subtitle = "Mark where you are",
                     onClick = { onNavigate(Routes.REPORT) },
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier
+                        .weight(1f)
+                        .tutorialTarget(tutorialManager, "report_button")
                 )
             }
         }
+    }
+
+        if (tutorialManager.isActive && tutorialManager.currentStep?.route == Routes.HOME) {
+            TutorialOverlay(tutorialManager)
+        }
+        if (tutorialManager.showCelebration) {
+            TutorialCelebrationOverlay(onDismiss = tutorialManager::dismissCelebration)
+        }
+    }
+
+    if (tutorialManager.showWelcomePrompt) {
+        TutorialWelcomeDialog(
+            onGetStarted = tutorialManager::beginTour,
+            onSkip = tutorialManager::declineTour
+        )
     }
 }
 

@@ -8,6 +8,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.drynav.app.data.auth.AuthRepository
 import com.drynav.app.data.location.LocationProvider
+import com.drynav.app.data.presence.PresenceManager
 import com.drynav.app.data.prefs.UserPreferences
 import com.drynav.app.data.search.GeocodingService
 import com.drynav.app.data.search.MapMatchingService
@@ -17,6 +18,7 @@ import com.drynav.app.domain.model.AreaPoint
 import com.drynav.app.domain.model.FloodReport
 import com.drynav.app.domain.model.FloodSeverity
 import com.drynav.app.domain.model.Mood
+import com.drynav.app.domain.model.Presence
 import com.drynav.app.domain.repository.FloodRepository
 import com.google.firebase.storage.FirebaseStorage
 import com.mapbox.geojson.Point
@@ -67,7 +69,9 @@ data class ReportUiState(
     val submitted: Boolean = false,
     val message: String? = null,
     /** The signed-in user's chosen map-puck character — shown here too since you're stationary while reporting. */
-    val mood: Mood? = null
+    val mood: Mood? = null,
+    /** Other online users' live position + mood — same app-wide feed MapScreen uses. */
+    val otherPresences: List<Presence> = emptyList()
 )
 
 @HiltViewModel
@@ -79,6 +83,7 @@ class ReportViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val geocodingService: GeocodingService,
     private val prefs: UserPreferences,
+    private val presenceManager: PresenceManager,
     @ApplicationContext private val appContext: Context
 ) : ViewModel() {
 
@@ -98,6 +103,11 @@ class ReportViewModel @Inject constructor(
         viewModelScope.launch {
             prefs.mood.collect { name ->
                 _uiState.update { it.copy(mood = Mood.fromName(name) ?: Mood.HAPPY) }
+            }
+        }
+        viewModelScope.launch {
+            presenceManager.otherPresences.collect { others ->
+                _uiState.update { it.copy(otherPresences = others) }
             }
         }
     }

@@ -14,8 +14,8 @@ import com.drynav.app.domain.model.FloodReport
 import com.drynav.app.domain.model.FloodSeverity
 import com.drynav.app.domain.model.Mood
 import com.drynav.app.domain.model.SavedPlace
+import com.drynav.app.data.presence.PresenceManager
 import com.drynav.app.domain.repository.FloodRepository
-import com.drynav.app.domain.repository.PresenceRepository
 import com.drynav.app.domain.repository.SavedPlacesRepository
 import com.drynav.app.routing.FloodAwareRouter
 import com.mapbox.bindgen.Expected
@@ -62,9 +62,6 @@ import javax.inject.Inject
 
 // ~3.6 km/h — below this, GPS/map-matched bearing is unreliable noise.
 private const val MIN_BEARING_SPEED_MPS = 1.0f
-// Frequent enough that another user's character doesn't visibly lag behind
-// their real position, not so often it hammers Firestore with writes.
-private const val PRESENCE_HEARTBEAT_MS = 12_000L
 // "Nearby" for the Waze-style toast — a few city blocks, not "anywhere online".
 private const val NEARBY_RADIUS_METERS = 3_000.0
 private const val NEARBY_MESSAGE_DURATION_MS = 3_800L
@@ -76,7 +73,7 @@ class MapViewModel @Inject constructor(
     private val geocodingService: GeocodingService,
     private val prefs: UserPreferences,
     private val authRepository: AuthRepository,
-    private val presenceRepository: PresenceRepository,
+    private val presenceManager: PresenceManager,
     private val savedPlacesRepository: SavedPlacesRepository,
     @ApplicationContext private val appContext: Context
 ) : ViewModel() {
@@ -252,6 +249,7 @@ class MapViewModel @Inject constructor(
         fetchInitialLocation()
         loadRecentSearches()
         observeSavedPlaces()
+        observePresence()
         viewModelScope.launch {
             prefs.mood.collect { name ->
                 _uiState.update { it.copy(mood = Mood.fromName(name) ?: Mood.HAPPY) }
@@ -298,7 +296,6 @@ class MapViewModel @Inject constructor(
     fun attachMap(mapboxMap: MapboxMap, cameraPlugin: CameraAnimationsPlugin) {
         if (this.cameraPlugin === cameraPlugin) return
         this.cameraPlugin = cameraPlugin
-        startPresenceSharing()
         val density = appContext.resources.displayMetrics.density
         val source = MapboxNavigationViewportDataSource(mapboxMap).apply {
             // Symmetric top/bottom insets keep the puck centered on screen
@@ -327,45 +324,22 @@ class MapViewModel @Inject constructor(
         navigationCamera = null
         viewportDataSource = null
         cameraPlugin = null
-        stopPresenceSharing()
     }
 
     /**
-     * Waze-style "other drivers": while this map screen is open, heartbeats
-     * the signed-in user's own position + [Mood] to Firestore every
-     * [PRESENCE_HEARTBEAT_MS] (only when a mood is actually chosen — picking
-     * no mood opts out of broadcasting entirely) and streams every other
-     * online user's live presence into [MapUiState.otherPresences].
+     * Waze-style "other drivers": [PresenceManager] itself broadcasts the
+     * signed-in user's position/[Mood] and streams everyone else's, for as
+     * long as the app is in the foreground (see [DryNavGraph][com.drynav.app.presentation.navigation.DryNavGraph]) —
+     * not tied to this screen. This just mirrors that shared stream into
+     * [MapUiState.otherPresences] for rendering.
      */
-    private var presenceHeartbeatJob: Job? = null
-    private var othersPresenceJob: Job? = null
-
-    private fun startPresenceSharing() {
-        othersPresenceJob?.cancel()
-        othersPresenceJob = viewModelScope.launch {
-            presenceRepository.observeOthers().collect { others ->
+    private fun observePresence() {
+        viewModelScope.launch {
+            presenceManager.otherPresences.collect { others ->
                 _uiState.update { it.copy(otherPresences = others) }
                 maybeShowNearbyMessage()
             }
         }
-        presenceHeartbeatJob?.cancel()
-        presenceHeartbeatJob = viewModelScope.launch {
-            while (isActive) {
-                val mood = _uiState.value.mood
-                val location = _uiState.value.userLocation
-                if (mood != null && location != null) {
-                    presenceRepository.publishPresence(mood.name, location)
-                }
-                delay(PRESENCE_HEARTBEAT_MS)
-            }
-        }
-    }
-
-    private fun stopPresenceSharing() {
-        presenceHeartbeatJob?.cancel()
-        othersPresenceJob?.cancel()
-        _uiState.update { it.copy(otherPresences = emptyList()) }
-        viewModelScope.launch { presenceRepository.clearPresence() }
     }
 
     /**
