@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Insets the logo artwork inward so it sits fully within the adaptive
+     icon's guaranteed-safe zone — without this, launchers that mask to a
+     circle/squircle crop the outer ~33% and the logo reads as oversized
+     and off-center. -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/img_app_icon"
+    android:insetLeft="17%"
+    android:insetTop="17%"
+    android:insetRight="17%"
+    android:insetBottom="17%" />
