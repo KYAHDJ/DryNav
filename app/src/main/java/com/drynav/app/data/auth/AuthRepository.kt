@@ -32,12 +32,14 @@ class AuthRepository @Inject constructor(
     val isLoggedIn: Boolean get() = auth.currentUser != null
 
     /**
-     * Single hardcoded admin account for flood-report moderation. Good enough
-     * for a thesis-scale deployment; a real rollout would move this to a
-     * Firestore custom-claims / roles collection instead.
+     * Hardcoded admin accounts for flood-report moderation. Good enough for a
+     * thesis-scale deployment; a real rollout would move this to a Firestore
+     * custom-claims / roles collection instead.
      */
     val isAdmin: Boolean
-        get() = currentUser?.email?.equals(ADMIN_EMAIL, ignoreCase = true) == true
+        get() = currentUser?.email?.let { email ->
+            ADMIN_EMAILS.any { it.equals(email, ignoreCase = true) }
+        } == true
 
     /**
      * True when Google is (one of) this account's sign-in providers. Drives
@@ -177,6 +179,6 @@ class AuthRepository @Inject constructor(
     private companion object {
         const val OTP_CHANNEL_ID = "drynav_otp"
         const val OTP_NOTIFICATION_ID = 1001
-        const val ADMIN_EMAIL = "kyaiko.dev@gmail.com"
+        val ADMIN_EMAILS = setOf("kyaiko.dev@gmail.com", "qdjgbenitez@tip.edu.ph")
     }
 }

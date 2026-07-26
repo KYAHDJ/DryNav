@@ -38,8 +38,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
+import androidx.core.graphics.drawable.toBitmap
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.drynav.app.domain.model.Mood
 import com.drynav.app.presentation.components.DryNavBottomBar
 import com.drynav.app.presentation.components.LoadingOverlay
 import com.drynav.app.presentation.components.PillButton
@@ -47,6 +50,12 @@ import com.drynav.app.presentation.navigation.Routes
 import com.drynav.app.presentation.theme.TealPrimary
 import com.mapbox.maps.CameraOptions
 import com.mapbox.maps.MapView
+import com.mapbox.maps.extension.style.layers.properties.generated.IconAnchor
+import com.mapbox.maps.extension.style.layers.properties.generated.IconRotationAlignment
+import com.mapbox.maps.plugin.annotation.annotations
+import com.mapbox.maps.plugin.annotation.generated.PointAnnotationManager
+import com.mapbox.maps.plugin.annotation.generated.PointAnnotationOptions
+import com.mapbox.maps.plugin.annotation.generated.createPointAnnotationManager
 
 /**
  * "Maps1" — the map preview with the curved "Stay on the Dry Path" panel and
@@ -62,11 +71,42 @@ fun MapHomeScreen(
     val mapView = remember { MapView(context) }
     var showLayersSheet by rememberSaveable { mutableStateOf(false) }
 
+    // Own mood character — shown here too since this screen is just a
+    // stationary preview (nothing moving until "Start Navigation" is
+    // tapped). Same billboarded-annotation approach as the other two map
+    // screens, so it never rotates/tilts oddly with the map.
+    val ownMoodAnnotationManager: PointAnnotationManager = remember {
+        mapView.annotations.createPointAnnotationManager().apply {
+            iconRotationAlignment = IconRotationAlignment.VIEWPORT
+        }
+    }
+    val moodBitmaps = remember {
+        Mood.entries.associateWith { mood ->
+            ContextCompat.getDrawable(context, mood.iconRes)!!.toBitmap()
+        }
+    }
+
     DisposableEffect(Unit) {
         mapView.applyDryNavMapDefaults()
         mapView.applyDryNavLocationPuck()
         onDispose {
             mapView.onDestroy()
+        }
+    }
+
+    LaunchedEffect(uiState.mood, uiState.userLocation) {
+        mapView.setDefaultPuckEnabled(uiState.mood == null)
+        ownMoodAnnotationManager.deleteAll()
+        val bitmap = uiState.mood?.let { moodBitmaps[it] }
+        val point = uiState.userLocation
+        if (bitmap != null && point != null) {
+            ownMoodAnnotationManager.create(
+                PointAnnotationOptions()
+                    .withPoint(point)
+                    .withIconImage(bitmap)
+                    .withIconAnchor(IconAnchor.BOTTOM)
+                    .withIconSize(0.35)
+            )
         }
     }
 
