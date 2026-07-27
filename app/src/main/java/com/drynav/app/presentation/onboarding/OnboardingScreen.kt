@@ -69,7 +69,15 @@ fun OnboardingScreen(
     val pagerState = rememberPagerState(pageCount = { pages.size })
     val scope = rememberCoroutineScope()
 
-    HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { pageIndex ->
+    HorizontalPager(
+        state = pagerState,
+        // A stable key per page (title, not the index) so Compose never
+        // reuses a swiped-away page's composition state for a different
+        // page when swiping back — see AutoSizeText's doc for the bug this
+        // class of implicit-key slot reuse could otherwise cause.
+        key = { pages[it].title },
+        modifier = Modifier.fillMaxSize()
+    ) { pageIndex ->
         val page = pages[pageIndex]
         Column(
             modifier = Modifier

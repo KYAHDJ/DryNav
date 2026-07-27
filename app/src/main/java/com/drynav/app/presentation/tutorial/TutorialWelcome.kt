@@ -81,6 +81,7 @@ fun TutorialWelcomeDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(Modifier.height(12.dp))
+                val playClick = com.drynav.app.presentation.sound.rememberClickSound()
                 Text(
                     "Skip",
                     style = MaterialTheme.typography.labelLarge,
@@ -90,7 +91,7 @@ fun TutorialWelcomeDialog(
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
-                            onClick = onSkip
+                            onClick = { playClick(); onSkip() }
                         )
                 )
             }

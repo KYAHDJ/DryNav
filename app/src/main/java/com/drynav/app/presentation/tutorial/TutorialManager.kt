@@ -8,6 +8,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.geometry.Rect
 import com.drynav.app.data.prefs.UserPreferences
 import com.drynav.app.presentation.navigation.Routes
+import com.drynav.app.presentation.sound.SoundManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -35,7 +36,8 @@ data class TutorialStep(
  */
 @Singleton
 class TutorialManager @Inject constructor(
-    private val userPreferences: UserPreferences
+    private val userPreferences: UserPreferences,
+    private val soundManager: SoundManager
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -106,6 +108,10 @@ class TutorialManager @Inject constructor(
     private fun finishTour() {
         isActive = false
         showCelebration = true
+        // Fired from here (not a Compose LaunchedEffect on the celebration
+        // overlay) so it plays deterministically the instant the tour ends,
+        // regardless of which screen happens to be composed at that moment.
+        soundManager.playVictory()
     }
 
     fun dismissCelebration() {
@@ -201,7 +207,7 @@ private fun buildTutorialSteps(): List<TutorialStep> = listOf(
         route = Routes.REPORT,
         targetKey = "severity_toggle",
         title = "Passable or blocked",
-        description = "Mark whether the road is still slowly passable, or completely blocked to traffic."
+        description = "Mark whether the road is still slowly passable, or completely blocked by the flood."
     ),
     TutorialStep(
         route = Routes.REPORT,

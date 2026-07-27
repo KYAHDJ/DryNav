@@ -298,8 +298,9 @@ private fun ActionRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val playClick = com.drynav.app.presentation.sound.rememberClickSound()
     Surface(
-        onClick = onClick,
+        onClick = { playClick(); onClick() },
         shape = RoundedCornerShape(24.dp),
         color = Color.White,
         shadowElevation = 4.dp,

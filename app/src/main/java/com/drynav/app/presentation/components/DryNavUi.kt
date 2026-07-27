@@ -55,7 +55,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -90,8 +89,15 @@ import kotlin.math.roundToInt
  * A [Text] that shrinks its own font size (down to [minFontScale] of the
  * requested size) until it fits the width/height Compose actually gives it,
  * instead of wrapping oddly, clipping, or spilling past a button/card edge.
- * Renders invisibly for the one frame it takes to measure so the shrink
- * never visibly "pops."
+ *
+ * Always visible from the first frame — it used to hide itself (alpha 0)
+ * until the shrink-to-fit measurement converged, to avoid a visible "pop."
+ * That left a real gap: if a host that recycles composition slots (e.g. a
+ * `HorizontalPager` page swiped out and back in) ever re-entered this
+ * composable without delivering a fresh `onTextLayout` callback, the text
+ * stayed invisible forever — looking like the button had no label at all.
+ * Showing it immediately trades a rare, harmless one-frame size "pop" for
+ * never silently disappearing.
  */
 @Composable
 fun AutoSizeText(
@@ -103,7 +109,7 @@ fun AutoSizeText(
     minFontScale: Float = 0.5f
 ) {
     var fontSize by remember(text, style) { mutableStateOf(style.fontSize) }
-    var readyToDraw by remember(text, style) { mutableStateOf(false) }
+    var settled by remember(text, style) { mutableStateOf(false) }
 
     Text(
         text = text,
@@ -113,17 +119,17 @@ fun AutoSizeText(
         softWrap = maxLines > 1,
         style = style.copy(fontSize = fontSize),
         onTextLayout = { result ->
-            if (!readyToDraw) {
+            if (!settled) {
                 if ((result.didOverflowWidth || result.didOverflowHeight) &&
                     fontSize.value / style.fontSize.value > minFontScale
                 ) {
                     fontSize *= 0.94f
                 } else {
-                    readyToDraw = true
+                    settled = true
                 }
             }
         },
-        modifier = modifier.alpha(if (readyToDraw) 1f else 0f)
+        modifier = modifier
     )
 }
 
@@ -173,8 +179,9 @@ fun PillButton(
     fontSize: Int = 16,
     leadingIcon: (@Composable () -> Unit)? = null
 ) {
+    val playClick = com.drynav.app.presentation.sound.rememberClickSound()
     Button(
-        onClick = onClick,
+        onClick = { playClick(); onClick() },
         enabled = enabled && !loading,
         shape = CircleShape,
         border = borderColor?.let { BorderStroke(1.5.dp, it) },
@@ -359,6 +366,7 @@ fun DryNavBottomBar(
     modifier: Modifier = Modifier
 ) {
     val isAdmin = hiltViewModel<BottomBarViewModel>().isAdmin
+    val playClick = com.drynav.app.presentation.sound.rememberClickSound()
     val items = buildList {
         add(NavItem(Routes.HOME, Icons.Outlined.Home, Icons.Filled.Home, "Home"))
         add(NavItem(Routes.MAP_HOME, Icons.Outlined.LocationOn, Icons.Filled.LocationOn, "Maps"))
@@ -391,7 +399,7 @@ fun DryNavBottomBar(
             items.forEach { item ->
                 val selected = currentRoute == item.route ||
                     (item.route == Routes.MAP_HOME && currentRoute == Routes.MAP)
-                IconButton(onClick = { if (!selected) onNavigate(item.route) }) {
+                IconButton(onClick = { if (!selected) { playClick(); onNavigate(item.route) } }) {
                     Icon(
                         imageVector = if (selected) item.filled else item.outlined,
                         contentDescription = item.label,

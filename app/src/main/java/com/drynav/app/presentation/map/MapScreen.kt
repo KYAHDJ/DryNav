@@ -152,6 +152,7 @@ fun MapScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var showLayersSheet by rememberSaveable { mutableStateOf(false) }
     val tutorialManager = hiltViewModel<TutorialViewModel>().manager
+    val musicManager = hiltViewModel<com.drynav.app.presentation.music.MusicViewModel>().manager
 
     // ---- Mapbox singletons scoped to this screen ----
     val mapboxNavigation: MapboxNavigation = remember {
@@ -260,6 +261,16 @@ fun MapScreen(
     // back to the small default arrow so the driver has clear directional
     // info while in motion. Toggling the Mapbox puck's `enabled` off avoids
     // showing two pucks at once.
+    // Duck the background music while actually driving so voice guidance
+    // stays clear; back to normal the moment the trip ends or this screen
+    // goes away (in case it's torn down mid-trip).
+    LaunchedEffect(uiState.isNavigating) {
+        musicManager.setMoving(uiState.isNavigating)
+    }
+    DisposableEffect(Unit) {
+        onDispose { musicManager.setMoving(false) }
+    }
+
     LaunchedEffect(uiState.isNavigating, uiState.mood, uiState.userLocation) {
         val showMoodPuck = !uiState.isNavigating && uiState.mood != null
         mapView.setDefaultPuckEnabled(!showMoodPuck)

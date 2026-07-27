@@ -70,6 +70,7 @@ fun TutorialOverlay(manager: TutorialManager) {
     val step = manager.currentStep ?: return
     val bounds = manager.targets[step.targetKey]
     val density = LocalDensity.current
+    val playClick = com.drynav.app.presentation.sound.rememberClickSound()
 
     val infiniteTransition = rememberInfiniteTransition(label = "tutorialPulse")
     val pulse by infiniteTransition.animateFloat(
@@ -87,7 +88,7 @@ fun TutorialOverlay(manager: TutorialManager) {
             .fillMaxSize()
             // Any tap anywhere just advances — never lets a tap through to
             // whatever's underneath, spotlighted or not.
-            .pointerInput(manager.stepIndex) { detectTapGestures { manager.next() } }
+            .pointerInput(manager.stepIndex) { detectTapGestures { playClick(); manager.next() } }
     ) {
         val padPx = with(density) { 10.dp.toPx() }
         val maxCornerPx = with(density) { 28.dp.toPx() }
@@ -180,6 +181,7 @@ private fun TutorialCard(
     onSkip: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val playClick = com.drynav.app.presentation.sound.rememberClickSound()
     Surface(
         color = Color.White,
         shape = RoundedCornerShape(20.dp),
@@ -209,7 +211,7 @@ private fun TutorialCard(
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
-                            onClick = onSkip
+                            onClick = { playClick(); onSkip() }
                         )
                 )
                 Spacer(Modifier.weight(1f))
@@ -223,7 +225,7 @@ private fun TutorialCard(
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = null,
-                                onClick = onBack
+                                onClick = { playClick(); onBack() }
                             )
                     )
                 }

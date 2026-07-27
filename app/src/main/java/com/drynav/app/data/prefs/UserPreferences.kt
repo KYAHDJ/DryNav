@@ -3,6 +3,7 @@ package com.drynav.app.data.prefs
 import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.drynav.app.data.search.PlaceResult
@@ -30,6 +31,8 @@ class UserPreferences @Inject constructor(
         val RECENT_SEARCHES = stringPreferencesKey("recent_searches")
         val MOOD = stringPreferencesKey("mood")
         val TUTORIAL_SEEN_UIDS = stringPreferencesKey("tutorial_seen_uids")
+        val MUSIC_ENABLED = booleanPreferencesKey("music_enabled")
+        val MUSIC_VOLUME = floatPreferencesKey("music_volume")
     }
 
     // ------------------------------------------------------------------
@@ -77,6 +80,23 @@ class UserPreferences @Inject constructor(
 
     val notificationsEnabled: Flow<Boolean> =
         context.dataStore.data.map { it[Keys.NOTIFICATIONS] ?: true }
+
+    // Background music: [musicVolume] is the user's chosen "normal" level
+    // (default 75%); MusicManager scales it down while navigating, it isn't
+    // a separate stored value.
+    val musicEnabled: Flow<Boolean> =
+        context.dataStore.data.map { it[Keys.MUSIC_ENABLED] ?: true }
+
+    val musicVolume: Flow<Float> =
+        context.dataStore.data.map { it[Keys.MUSIC_VOLUME] ?: 0.75f }
+
+    suspend fun setMusicEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[Keys.MUSIC_ENABLED] = enabled }
+    }
+
+    suspend fun setMusicVolume(volume: Float) {
+        context.dataStore.edit { it[Keys.MUSIC_VOLUME] = volume.coerceIn(0f, 1f) }
+    }
 
     suspend fun setOnboardingSeen() {
         context.dataStore.edit { it[Keys.ONBOARDING_SEEN] = true }

@@ -14,6 +14,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
 import com.drynav.app.data.presence.PresenceLifecycleViewModel
+import com.drynav.app.presentation.music.MusicViewModel
 import com.drynav.app.presentation.tutorial.TutorialViewModel
 import com.drynav.app.presentation.admin.AdminScreen
 import com.drynav.app.presentation.auth.LoginScreen
@@ -39,12 +40,20 @@ fun DryNavGraph() {
     // foreground (ON_START/ON_STOP), regardless of which screen is showing —
     // not tied to any single destination. See PresenceManager for why.
     val presenceLifecycleViewModel: PresenceLifecycleViewModel = hiltViewModel()
+    // App-wide background music, same ON_START/ON_STOP lifecycle as presence.
+    val musicViewModel: MusicViewModel = hiltViewModel()
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
-                Lifecycle.Event.ON_START -> presenceLifecycleViewModel.manager.start()
-                Lifecycle.Event.ON_STOP -> presenceLifecycleViewModel.manager.stop()
+                Lifecycle.Event.ON_START -> {
+                    presenceLifecycleViewModel.manager.start()
+                    musicViewModel.manager.start()
+                }
+                Lifecycle.Event.ON_STOP -> {
+                    presenceLifecycleViewModel.manager.stop()
+                    musicViewModel.manager.stop()
+                }
                 else -> Unit
             }
         }

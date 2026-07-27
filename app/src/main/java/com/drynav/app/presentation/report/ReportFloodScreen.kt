@@ -124,16 +124,20 @@ fun ReportFloodScreen(
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    val playClick = com.drynav.app.presentation.sound.rememberClickSound()
     // Collapsed by default so the map is fully visible; tap the handle to
     // bring the form back up when you're ready to fill it in.
     var sheetExpanded by rememberSaveable { mutableStateOf(false) }
     val tutorialManager = hiltViewModel<TutorialViewModel>().manager
-    // The photo/severity/submit targets live inside the collapsible sheet —
-    // force it open for the whole Report leg of the tour so they're all
-    // actually on screen to spotlight.
+    // Brush/undo-redo targets live on the map, under the sheet — collapse it
+    // for those steps so nothing is hidden. The photo/severity/submit targets
+    // live inside the sheet, so it's brought back up starting at photo_picker.
     LaunchedEffect(tutorialManager.isActive, tutorialManager.stepIndex) {
         if (tutorialManager.isActive && tutorialManager.currentStep?.route == Routes.REPORT) {
-            sheetExpanded = true
+            sheetExpanded = when (tutorialManager.currentStep?.targetKey) {
+                "brush_tool", "history_buttons" -> false
+                else -> true
+            }
         }
     }
 
@@ -452,7 +456,7 @@ fun ReportFloodScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { sheetExpanded = !sheetExpanded }
+                            .clickable { playClick(); sheetExpanded = !sheetExpanded }
                     ) {
                         Column(Modifier.weight(1f)) {
                             Text(
@@ -503,7 +507,7 @@ fun ReportFloodScreen(
                                         .clip(RoundedCornerShape(14.dp))
                                 )
                                 Surface(
-                                    onClick = { viewModel.removePhoto(uri) },
+                                    onClick = { playClick(); viewModel.removePhoto(uri) },
                                     shape = CircleShape,
                                     color = Color(0xCC1F2937),
                                     modifier = Modifier
@@ -530,6 +534,7 @@ fun ReportFloodScreen(
                                 .border(2.dp, TealPrimary, RoundedCornerShape(14.dp))
                                 .tutorialTarget(tutorialManager, "photo_picker")
                                 .clickable {
+                                    playClick()
                                     photoPicker.launch(
                                         PickVisualMediaRequest(
                                             ActivityResultContracts.PickVisualMedia.ImageOnly
@@ -580,7 +585,7 @@ fun ReportFloodScreen(
                                 .weight(1f)
                                 .clip(RoundedCornerShape(14.dp))
                                 .background(if (passableSelected) Amber else Color(0xFFF3F6F9))
-                                .clickable { viewModel.setSeverity(FloodSeverity.PASSABLE) }
+                                .clickable { playClick(); viewModel.setSeverity(FloodSeverity.PASSABLE) }
                                 .padding(vertical = 13.dp)
                         ) {
                             Text(
@@ -595,7 +600,7 @@ fun ReportFloodScreen(
                                 .weight(1f)
                                 .clip(RoundedCornerShape(14.dp))
                                 .background(if (blockedSelected) FloodRed else Color(0xFFF3F6F9))
-                                .clickable { viewModel.setSeverity(FloodSeverity.IMPASSABLE) }
+                                .clickable { playClick(); viewModel.setSeverity(FloodSeverity.IMPASSABLE) }
                                 .padding(vertical = 13.dp)
                         ) {
                             Text(
@@ -647,8 +652,9 @@ private fun BrushToolButton(
     enabled: Boolean = true,
     modifier: Modifier = Modifier
 ) {
+    val playClick = com.drynav.app.presentation.sound.rememberClickSound()
     Surface(
-        onClick = onClick,
+        onClick = { playClick(); onClick() },
         enabled = enabled,
         shape = CircleShape,
         color = when {

@@ -47,7 +47,10 @@ private data class ConfettiPiece(
  * Post-tour celebration: a dark overlay, centered welcome message, and a
  * gentle continuous confetti shower behind it — shown once, right after the
  * guided tour finishes or is skipped, then never again for this account
- * (see [TutorialManager.dismissCelebration]).
+ * (see [TutorialManager.dismissCelebration]). The victory sound itself is
+ * fired from [TutorialManager.finishTour], not here — that fires reliably
+ * the instant the tour ends regardless of which screen is composed, whereas
+ * a `LaunchedEffect` on this overlay could race with in-app navigation.
  */
 @Composable
 fun TutorialCelebrationOverlay(onDismiss: () -> Unit) {

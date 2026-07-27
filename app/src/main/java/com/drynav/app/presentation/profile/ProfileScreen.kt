@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.EmojiEmotions
 import androidx.compose.material.icons.outlined.GppGood
+import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material.icons.outlined.WorkspacePremium
@@ -42,6 +43,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -71,6 +73,7 @@ import com.drynav.app.domain.model.Mood
 import com.drynav.app.presentation.components.CircleBackButton
 import com.drynav.app.presentation.components.DryNavBottomBar
 import com.drynav.app.presentation.components.PillButton
+import com.drynav.app.presentation.music.MusicViewModel
 import com.drynav.app.presentation.navigation.Routes
 import com.drynav.app.presentation.tutorial.TutorialCelebrationOverlay
 import com.drynav.app.presentation.tutorial.TutorialOverlay
@@ -105,7 +108,9 @@ fun ProfileScreen(
     var showMoodPicker by rememberSaveable { mutableStateOf(false) }
     var showChangePassword by rememberSaveable { mutableStateOf(false) }
     var showDeleteAccount by rememberSaveable { mutableStateOf(false) }
+    var showMusicSettings by rememberSaveable { mutableStateOf(false) }
     val tutorialManager = hiltViewModel<TutorialViewModel>().manager
+    val musicManager = hiltViewModel<MusicViewModel>().manager
 
     LaunchedEffect(uiState.message) {
         uiState.message?.let {
@@ -302,6 +307,17 @@ fun ProfileScreen(
                         }
                     )
                     SettingsRow(
+                        icon = Icons.Outlined.MusicNote,
+                        iconTint = Color(0xFF8B5CF6),
+                        title = "Background Music",
+                        subtitle = if (musicManager.enabled) {
+                            "${(musicManager.volume * 100).toInt()}% — lowers while driving"
+                        } else {
+                            "Off"
+                        },
+                        onClick = { showMusicSettings = true }
+                    )
+                    SettingsRow(
                         icon = Icons.Outlined.WorkspacePremium,
                         iconTint = TealPrimary,
                         title = "Upgrade Your Plan",
@@ -424,6 +440,16 @@ fun ProfileScreen(
         )
     }
 
+    if (showMusicSettings) {
+        MusicSettingsDialog(
+            enabled = musicManager.enabled,
+            volume = musicManager.volume,
+            onSetEnabled = musicManager::updateEnabled,
+            onSetVolume = musicManager::updateVolume,
+            onDismiss = { showMusicSettings = false }
+        )
+    }
+
     if (showDeleteAccount) {
         DeleteAccountDialog(
             isGoogleAccount = uiState.isGoogleAccount,
@@ -509,6 +535,77 @@ private fun MoodPickerDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable(onClick = onDismiss)
+                )
+            }
+        }
+    }
+}
+
+/** On/off + volume for the app's looping background music, plus how the driving-duck works. */
+@Composable
+private fun MusicSettingsDialog(
+    enabled: Boolean,
+    volume: Float,
+    onSetEnabled: (Boolean) -> Unit,
+    onSetVolume: (Float) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val playClick = com.drynav.app.presentation.sound.rememberClickSound()
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            color = Color.White,
+            shape = RoundedCornerShape(28.dp),
+            shadowElevation = 12.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 26.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Background Music", style = MaterialTheme.typography.headlineSmall, color = TextDark)
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "Ambient music while you use DryNav.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextGray
+                        )
+                    }
+                    Switch(
+                        checked = enabled,
+                        onCheckedChange = { playClick(); onSetEnabled(it) }
+                    )
+                }
+                Spacer(Modifier.height(20.dp))
+                Row(
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Volume", style = MaterialTheme.typography.labelLarge, color = TextDark)
+                    Text(
+                        "${(volume * 100).toInt()}%",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = TealPrimary
+                    )
+                }
+                Slider(
+                    value = volume,
+                    onValueChange = onSetVolume,
+                    enabled = enabled,
+                    colors = androidx.compose.material3.SliderDefaults.colors(
+                        thumbColor = TealPrimary,
+                        activeTrackColor = TealPrimary
+                    )
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "Automatically lowers to about 30% while you're actively navigating, so voice directions stay clear.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextGray
+                )
+                Spacer(Modifier.height(20.dp))
+                PillButton(
+                    text = "Done",
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
         }
@@ -744,13 +841,14 @@ private fun SettingsRow(
     trailing: (@Composable () -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
+    val playClick = com.drynav.app.presentation.sound.rememberClickSound()
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .then(if (onClick != null) Modifier.clickable(onClick = { playClick(); onClick() }) else Modifier)
             .padding(vertical = 10.dp, horizontal = 4.dp)
     ) {
         Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(26.dp))
