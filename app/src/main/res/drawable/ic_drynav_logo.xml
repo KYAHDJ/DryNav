@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- DryNav droplet: teal water drop containing a winding road that leads to a
+     green location pin. Drawn as a vector so it scales crisply everywhere. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+
+    <!-- soft ground shadow -->
+    <path
+        android:pathData="M100,192a52,8 0 1,0 0.001,0z"
+        android:fillColor="#22000000" />
+
+    <!-- white rim of the drop -->
+    <path
+        android:pathData="M100,6 C100,6 28,86 28,126 a72,72 0 0,0 144,0 C172,86 100,6 100,6 Z"
+        android:fillColor="#FFFFFF" />
+
+    <!-- teal drop body -->
+    <path
+        android:pathData="M100,16 C100,16 38,88 38,125 a62,62 0 0,0 124,0 C162,88 100,16 100,16 Z"
+        android:fillColor="#17798A" />
+
+    <!-- inner highlight -->
+    <path
+        android:pathData="M100,26 C100,26 48,90 48,124 a52,52 0 0,0 26,45 C60,150 66,110 100,26 Z"
+        android:fillColor="#2E93A4" />
+
+    <!-- winding road -->
+    <path
+        android:pathData="M78,178 C64,158 128,146 112,124 C100,108 86,104 94,86 C99,75 100,70 100,62"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="18"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+
+    <!-- road centre dashes -->
+    <path
+        android:pathData="M84,168 C80,163 82,160 88,157"
+        android:strokeColor="#9CCB3B"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+    <path
+        android:pathData="M108,132 C104,124 98,119 94,112"
+        android:strokeColor="#9CCB3B"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+    <path
+        android:pathData="M94,90 C97,82 99,76 99,70"
+        android:strokeColor="#9CCB3B"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+
+    <!-- location pin at the end of the road -->
+    <path
+        android:pathData="M100,34 a16,16 0 0,1 16,16 c0,10 -10,18 -16,26 c-6,-8 -16,-16 -16,-26 a16,16 0 0,1 16,-16 Z"
+        android:fillColor="#43A047" />
+    <path
+        android:pathData="M100,44a7,7 0 1,0 0.001,0z"
+        android:fillColor="#FFFFFF" />
+</vector>

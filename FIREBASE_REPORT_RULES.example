@@ -1,0 +1,18 @@
+// Firestore rules for DryNav flood reports.
+// Deploy through Firebase Console/CLI only after reviewing them for your app.
+// Reports are created by authenticated users and the reporterId must match
+// the authenticated Firebase UID used by the Android app.
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /flood_reports/{reportId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+                    && request.resource.data.reporterId == request.auth.uid;
+      allow update: if request.auth != null;
+      allow delete: if request.auth != null
+                    && resource.data.reporterId == request.auth.uid;
+    }
+  }
+}
