@@ -51,6 +51,7 @@ import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.WarningAmber
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material3.CircularProgressIndicator
@@ -438,37 +439,124 @@ fun MapScreen(
                         .padding(bottom = 118.dp, start = 18.dp, end = 18.dp)
                         .fillMaxWidth()
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(14.dp)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
                     ) {
-                        if (flood.reporterPhotoUrl.isNotBlank()) {
-                            AsyncImage(
-                                model = flood.reporterPhotoUrl,
-                                contentDescription = "Reporter profile",
-                                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                                modifier = Modifier.size(46.dp).background(MaterialTheme.colorScheme.primaryContainer, CircleShape).clip(CircleShape)
-                            )
-                        } else {
-                            Box(Modifier.size(46.dp).background(MaterialTheme.colorScheme.primaryContainer, CircleShape), contentAlignment = Alignment.Center) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (flood.reporterPhotoUrl.isNotBlank()) {
+                                AsyncImage(
+                                    model = flood.reporterPhotoUrl,
+                                    contentDescription = "Reporter profile",
+                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                    modifier = Modifier
+                                        .size(46.dp)
+                                        .background(MaterialTheme.colorScheme.primaryContainer, CircleShape)
+                                        .clip(CircleShape)
+                                )
+                            } else {
+                                Box(
+                                    Modifier
+                                        .size(46.dp)
+                                        .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        flood.reporterName.trim().split(" ")
+                                            .filter { it.isNotBlank() }.take(2)
+                                            .joinToString("") { it.first().uppercase() }
+                                            .ifBlank { "DN" },
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
                                 Text(
-                                    flood.reporterName.trim().split(" ").filter { it.isNotBlank() }.take(2).joinToString("") { it.first().uppercase() }.ifBlank { "DN" },
-                                    color = MaterialTheme.colorScheme.primary
+                                    flood.reporterName.ifBlank { "DryNav user" },
+                                    style = MaterialTheme.typography.titleSmall
+                                )
+                                Text(
+                                    "Flood report · ${relativeFloodTime(flood.timestamp)}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
+                            IconButton(onClick = viewModel::dismissSelectedFlood) {
+                                Icon(Icons.Default.Close, contentDescription = "Close flood details")
+                            }
                         }
-                        Spacer(Modifier.width(12.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(if (flood.severity == com.drynav.app.domain.model.FloodSeverity.IMPASSABLE) "Not Passable" else "Passable", style = MaterialTheme.typography.titleSmall)
+
+                        Spacer(Modifier.height(12.dp))
+                        HorizontalDivider()
+                        Spacer(Modifier.height(12.dp))
+
+                        if (flood.photoUrls.isNotEmpty()) {
+                            AsyncImage(
+                                model = flood.photoUrls.first(),
+                                contentDescription = "Flood report photo",
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(180.dp)
+                                    .clip(RoundedCornerShape(16.dp))
+                            )
+                            Spacer(Modifier.height(12.dp))
+                        }
+
+                        Text(
+                            if (flood.severity == com.drynav.app.domain.model.FloodSeverity.IMPASSABLE)
+                                "🌊 Flooded — Not Passable"
+                            else
+                                "🌊 Flood Report — Passable",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Text(
+                            "Affected area: ${flood.floodRadiusMeters.roundToInt()} m",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        if (flood.areaLabel.isNotBlank()) {
                             Text(
-                                "Pinned by ${flood.reporterName.ifBlank { "DryNav user" }} · ${flood.floodRadiusMeters.roundToInt()} m area",
+                                flood.areaLabel,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                            if (flood.reporterAreaLabel.isNotBlank()) Text(flood.reporterAreaLabel, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        IconButton(onClick = viewModel::dismissSelectedFlood) {
-                            Icon(Icons.Default.Close, contentDescription = "Close flood details")
+                        if (flood.description.isNotBlank()) {
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                flood.description,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "Community confirmations: ${flood.upvotes}",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        if (uiState.selectedFloodIsMine) {
+                            Spacer(Modifier.height(12.dp))
+                            androidx.compose.material3.Button(
+                                onClick = viewModel::deleteSelectedFloodReport,
+                                enabled = !uiState.isSubmittingReport,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(Icons.Default.Delete, contentDescription = null)
+                                Spacer(Modifier.width(8.dp))
+                                Text("Delete my flood report")
+                            }
+                            Text(
+                                "Only you can see this button for your own report.",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                                textAlign = TextAlign.Center
+                            )
                         }
                     }
                 }
@@ -1460,6 +1548,16 @@ private fun maneuverIcon(modifier: String?): ImageVector = when (modifier) {
 
 private fun formatDistance(meters: Double): String =
     if (meters >= 1000) "%.1f km".format(meters / 1000.0) else "${meters.roundToInt()} m"
+
+private fun relativeFloodTime(timestamp: Long): String {
+    val ageSeconds = ((System.currentTimeMillis() - timestamp).coerceAtLeast(0L)) / 1000L
+    return when {
+        ageSeconds < 60L -> "just now"
+        ageSeconds < 3600L -> "${ageSeconds / 60L} min ago"
+        ageSeconds < 86400L -> "${ageSeconds / 3600L} hr ago"
+        else -> "${ageSeconds / 86400L} day ago"
+    }
+}
 
 private fun formatEta(remainingSeconds: Double): String {
     val eta = Date(System.currentTimeMillis() + (remainingSeconds * 1000).toLong())

@@ -127,6 +127,12 @@ data class FloodReport(
         const val REPORT_LIFETIME_MS: Long = 24L * 60L * 60L * 1000L
         const val MAX_REPORT_AGE_MS: Long = REPORT_LIFETIME_MS
 
+        /** Anti-spam: the same reporter cannot create another nearby report during this window. */
+        const val SAME_REPORT_COOLDOWN_MS: Long = 15L * 60L * 1000L
+        const val SAME_REPORT_RADIUS_METERS: Double = 500.0
+        const val DUPLICATE_REPORT_MESSAGE: String =
+            "You already reported a flood within 500 m in the last 15 minutes."
+
         const val STATUS_PENDING = "pending"
         const val STATUS_APPROVED = "approved"
         const val STATUS_REJECTED = "rejected"

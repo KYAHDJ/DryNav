@@ -81,3 +81,8 @@ Suggested security rules: authenticated users may create reports and increment
 
 ### v1.5 routing behavior
 The navigation camera remains on the v1.3 driver-focused configuration. Flood-aware rerouting now starts from the current enhanced position, considers only route-intersecting approved live hazards, ignores hazards behind the vehicle, and periodically rechecks a blocked route from the vehicle's current position.
+
+
+## Flood report anti-spam
+
+DryNav prevents the same authenticated user from creating another flood report within 500 meters of a previous report during the 15-minute cooldown window. Existing reports still remain visible and other users can independently report/confirm the same flooded area.

@@ -352,6 +352,27 @@ class ReportViewModel @Inject constructor(
                 return@launch
             }
 
+            // Check the reporter's recent nearby reports before doing the expensive
+            // photo upload. The repository also repeats this check immediately before
+            // creating the Firestore document so callers cannot skip the guard.
+            val rateCheck = floodRepository.checkReportRateLimit(
+                FloodReport(
+                    latitude = location.latitude(),
+                    longitude = location.longitude(),
+                    reporterId = authenticatedUser.uid
+                )
+            )
+            if (rateCheck.isFailure) {
+                _uiState.update {
+                    it.copy(
+                        isSubmitting = false,
+                        message = rateCheck.exceptionOrNull()?.message
+                            ?: FloodReport.DUPLICATE_REPORT_MESSAGE
+                    )
+                }
+                return@launch
+            }
+
             // Every attached photo must upload successfully. A report with a
             // missing/failed mandatory photo is rejected rather than silently
             // submitting an incomplete report.

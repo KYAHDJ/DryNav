@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.drynav.app.R
 import com.drynav.app.data.location.LocationProvider
+import com.drynav.app.data.auth.AuthRepository
 import com.drynav.app.data.prefs.UserPreferences
 import com.drynav.app.data.search.GeocodingService
 import com.drynav.app.data.search.PlaceResult
@@ -71,6 +72,7 @@ private const val REROUTE_DEBOUNCE_MS = 8_000L
 class MapViewModel @Inject constructor(
     private val floodRepository: FloodRepository,
     private val locationProvider: LocationProvider,
+    private val authRepository: AuthRepository,
     private val geocodingService: GeocodingService,
     private val prefs: UserPreferences,
     private val presenceManager: PresenceManager,
@@ -511,14 +513,47 @@ class MapViewModel @Inject constructor(
             ) <= report.floodRadiusMeters.coerceAtLeast(40.0)
         }
         if (flood != null) {
-            _uiState.update { it.copy(selectedFlood = flood, pendingPin = null) }
+            val isMine = authRepository.currentUser?.uid?.let { it.isNotBlank() && it == flood.reporterId } == true
+            _uiState.update { it.copy(selectedFlood = flood, selectedFloodIsMine = isMine, pendingPin = null) }
         } else {
             _uiState.update { it.copy(selectedFlood = null, pendingPin = point, searchResults = emptyList()) }
         }
     }
 
-    fun dismissPin() = _uiState.update { it.copy(pendingPin = null, selectedFlood = null) }
-    fun dismissSelectedFlood() = _uiState.update { it.copy(selectedFlood = null) }
+    fun dismissPin() = _uiState.update { it.copy(pendingPin = null, selectedFlood = null, selectedFloodIsMine = false) }
+    fun dismissSelectedFlood() = _uiState.update { it.copy(selectedFlood = null, selectedFloodIsMine = false) }
+
+    /** Deletes the currently selected flood report, only if it belongs to the signed-in user. */
+    fun deleteSelectedFloodReport() {
+        val flood = _uiState.value.selectedFlood ?: return
+        val userId = authRepository.currentUser?.uid
+        if (userId.isNullOrBlank() || flood.reporterId.isBlank() || flood.reporterId != userId) {
+            _uiState.update { it.copy(snackbarMessage = "You can only delete your own flood reports.") }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSubmittingReport = true) }
+            floodRepository.deleteReport(flood.id, userId)
+                .onSuccess {
+                    _uiState.update {
+                        it.copy(
+                            isSubmittingReport = false,
+                            selectedFlood = null,
+                            selectedFloodIsMine = false,
+                            snackbarMessage = "Your flood report was deleted."
+                        )
+                    }
+                }
+                .onFailure { e ->
+                    _uiState.update {
+                        it.copy(
+                            isSubmittingReport = false,
+                            snackbarMessage = "Couldn't delete report: ${e.message}"
+                        )
+                    }
+                }
+        }
+    }
 
     // ------------------------------------------------------------------
     // Saved Places (Home/Work/custom-named pinned destinations)
@@ -616,6 +651,17 @@ class MapViewModel @Inject constructor(
                 }
                 return@launch
             }
+            val authenticatedUser = try {
+                authRepository.ensureAuthenticated()
+            } catch (_: Exception) {
+                _uiState.update {
+                    it.copy(
+                        isSubmittingReport = false,
+                        snackbarMessage = "Authentication is still starting. Please try again."
+                    )
+                }
+                return@launch
+            }
             val areaLabel = geocodingService.reverseGeocode(
                 Point.fromLngLat(location.longitude, location.latitude)
             ).orEmpty()
@@ -630,7 +676,10 @@ class MapViewModel @Inject constructor(
                 // flood location and reporter location are the same point.
                 reporterLatitude = location.latitude,
                 reporterLongitude = location.longitude,
-                reporterAreaLabel = areaLabel
+                reporterAreaLabel = areaLabel,
+                reporterId = authenticatedUser.uid,
+                reporterName = authenticatedUser.displayName.orEmpty(),
+                reporterPhotoUrl = authenticatedUser.photoUrl?.toString().orEmpty()
             )
             floodRepository.submitReport(report)
                 .onSuccess {

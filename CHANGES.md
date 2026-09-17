@@ -1,3 +1,12 @@
+
+## Report anti-spam + flood report details
+
+- Added a same-reporter anti-spam guard: one user cannot submit another flood report within **500 meters** of their recent report for **15 minutes**.
+- The guard runs before photo upload for fast feedback and is repeated inside the repository before Firestore creation.
+- The existing manual flood-pin requirement and Teachable Machine image check remain unchanged.
+- Map flood-pin details now show the reporter, report time, report photo, severity, affected radius, area label, description, and community confirmation count.
+- The older quick-report path now attaches the authenticated reporter's public name/photo/UID so its pins can show attribution too.
+
 # DryNav Flood Reporting Refactor
 
 Implemented the requested frontend/UX refactor without adding Teachable Machine or TensorFlow image recognition.

@@ -74,7 +74,9 @@ data class MapUiState(
     /** The point tapped while [isPinningSavedPlace] — shows the "name this place" modal. */
     val pendingSavedPlacePoint: Point? = null,
     /** Flood report currently selected on the map for attribution/details. */
-    val selectedFlood: FloodReport? = null
+    val selectedFlood: FloodReport? = null,
+    /** True only when the selected flood report belongs to the signed-in user. */
+    val selectedFloodIsMine: Boolean = false
 ) {
     val impassableFloods: List<FloodReport>
         get() = floodReports.filter { it.isActiveHazard }
