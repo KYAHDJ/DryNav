@@ -39,6 +39,10 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.WarningAmber
+import androidx.compose.material.icons.filled.HelpOutline
+import androidx.compose.material.icons.filled.BlurOn
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
@@ -435,25 +439,47 @@ fun ReportFloodScreen(
                             .horizontalScroll(rememberScrollState())
                     ) {
                         uiState.photos.forEach { photo ->
-                            Box(modifier = Modifier.size(88.dp)) {
-                                AsyncImage(
-                                    model = photo.uri,
-                                    contentDescription = "Flood photo",
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(14.dp))
-                                )
-                                Surface(
-                                    onClick = { viewModel.removePhoto(photo.uri) },
-                                    shape = CircleShape,
-                                    color = Color(0xCC1F2937),
-                                    modifier = Modifier.align(Alignment.TopEnd).padding(4.dp)
-                                ) {
-                                    Icon(
-                                        Icons.Default.Close,
-                                        contentDescription = "Remove photo",
-                                        tint = Color.White,
-                                        modifier = Modifier.padding(3.dp).size(14.dp)
+                            Row(
+                                verticalAlignment = Alignment.Top,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                modifier = Modifier.width(330.dp)
+                            ) {
+                                Box(modifier = Modifier.size(88.dp)) {
+                                    AsyncImage(
+                                        model = photo.uri,
+                                        contentDescription = "Flood photo",
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(14.dp))
                                     )
+                                    Surface(
+                                        onClick = { viewModel.removePhoto(photo.uri) },
+                                        shape = CircleShape,
+                                        color = Color(0xCC1F2937),
+                                        modifier = Modifier.align(Alignment.TopEnd).padding(4.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Close,
+                                            contentDescription = "Remove photo",
+                                            tint = Color.White,
+                                            modifier = Modifier.padding(3.dp).size(14.dp)
+                                        )
+                                    }
+                                }
+
+                                Box(modifier = Modifier.weight(1f)) {
+                                    when {
+                                        photo.aiAnalyzing -> {
+                                            Text(
+                                                "🤖 Analyzing image…",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.padding(top = 6.dp)
+                                            )
+                                        }
+                                        photo.aiAnalysis != null -> {
+                                            AiAnalysisCard(photo.aiAnalysis)
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -521,7 +547,10 @@ fun ReportFloodScreen(
                         text = "REPORT",
                         loading = uiState.isSubmitting,
                         onClick = viewModel::requestSubmit,
-                        enabled = uiState.photos.isNotEmpty() && uiState.reportLocation != null && !uiState.isSubmitting,
+                        enabled = uiState.photos.isNotEmpty() &&
+                            uiState.photos.all { !it.aiAnalyzing && it.aiAnalysis?.canSubmit == true } &&
+                            uiState.reportLocation != null &&
+                            !uiState.isSubmitting,
                         modifier = Modifier
                             .fillMaxWidth()
                             .tutorialTarget(tutorialManager, "submit_button"),
@@ -562,6 +591,60 @@ fun ReportFloodScreen(
         }
         if (tutorialManager.showCelebration) {
             TutorialCelebrationOverlay(onDismiss = tutorialManager::dismissCelebration)
+        }
+    }
+}
+
+
+@Composable
+private fun AiAnalysisCard(analysis: ImageAnalysis) {
+    val accent = when {
+        analysis.error -> FloodRed
+        analysis.label == "FLOOD" && analysis.canSubmit -> TealPrimary
+        analysis.label == "BLURRY_UNUSABLE" -> Amber
+        else -> FloodRed
+    }
+    val icon = when {
+        analysis.error -> Icons.Default.WarningAmber
+        analysis.label == "FLOOD" && analysis.canSubmit -> Icons.Default.CheckCircle
+        analysis.label == "BLURRY_UNUSABLE" -> Icons.Default.BlurOn
+        analysis.label == "UNCERTAIN" -> Icons.Default.HelpOutline
+        else -> Icons.Default.WarningAmber
+    }
+
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
+        shape = RoundedCornerShape(14.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            verticalAlignment = Alignment.Top,
+            modifier = Modifier.padding(10.dp)
+        ) {
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = accent,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(Modifier.width(8.dp))
+            Column {
+                Text(
+                    "AI IMAGE CHECK · ${analysis.confidence}%",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = accent
+                )
+                Text(
+                    analysis.title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    analysis.message,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }

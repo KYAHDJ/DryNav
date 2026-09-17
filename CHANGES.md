@@ -58,3 +58,12 @@ Implemented the requested frontend/UX refactor without adding Teachable Machine 
 - Added an 8-second debounce to prevent Firestore updates/off-route callbacks from repeatedly replacing the route in rapid succession.
 - Flood intersection checks use the full report geometry and route-relative distance, reducing false reroutes from nearby/behind flood points.
 - No automatic flood pinning or Firebase report behavior was changed.
+
+## Image recognition integration
+- Added the exported Teachable Machine TensorFlow Lite model and labels.
+- Added on-device analysis immediately after a report camera photo is captured.
+- Added a per-photo AI confidence score (1–100) and explanatory message in the Report tab.
+- Added FLOOD / NOT_FLOOD / BLURRY_UNUSABLE / UNCERTAIN handling.
+- Kept manual flood-pin placement mandatory.
+- Report submission is blocked until every attached photo passes the flood image check.
+- Initial conservative FLOOD submission threshold is 80%.

@@ -103,6 +103,9 @@ dependencies {
     implementation("com.mapbox.navigation:android:2.17.7") // Nav SDK v2 (bundles Maps 10.x)
     implementation("com.mapbox.mapboxsdk:mapbox-sdk-turf:6.15.0")
 
+    // ----- On-device flood image recognition -----
+    implementation("org.tensorflow:tensorflow-lite:2.14.0")
+
     // ----- Location -----
     implementation("com.google.android.gms:play-services-location:21.3.0")
 

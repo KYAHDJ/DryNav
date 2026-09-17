@@ -77,7 +77,9 @@ data class ReportUiState(
 
 data class CapturedPhoto(
     val uri: Uri,
-    val metadata: PhotoMetadata
+    val metadata: PhotoMetadata,
+    val aiAnalysis: ImageAnalysis? = null,
+    val aiAnalyzing: Boolean = false
 )
 
 @HiltViewModel
@@ -91,6 +93,8 @@ class ReportViewModel @Inject constructor(
     private val presenceManager: PresenceManager,
     @ApplicationContext private val appContext: Context
 ) : ViewModel() {
+
+    private val floodImageClassifier = FloodImageClassifier(appContext)
 
     private val _uiState = MutableStateFlow(ReportUiState())
     val uiState: StateFlow<ReportUiState> = _uiState.asStateFlow()
@@ -164,6 +168,10 @@ class ReportViewModel @Inject constructor(
         val state = _uiState.value
         when {
             state.photos.isEmpty() -> _uiState.update { it.copy(message = "A live camera photo is required before submitting.") }
+            state.photos.any { it.aiAnalyzing || it.aiAnalysis == null } ->
+                _uiState.update { it.copy(message = "Analyzing your photo — please wait a moment.") }
+            state.photos.any { it.aiAnalysis?.canSubmit != true } ->
+                _uiState.update { it.copy(message = "The photo needs a clearer flood result before it can be submitted.") }
             state.reportLocation == null -> _uiState.update { it.copy(message = "Pin the flood location on the map before submitting.") }
             else -> _uiState.update { it.copy(confirmBeforeSubmit = true) }
         }
@@ -270,11 +278,30 @@ class ReportViewModel @Inject constructor(
     }
 
     fun addCapturedPhoto(uri: Uri, metadata: PhotoMetadata) {
-        _uiState.update { it.copy(photos = it.photos + CapturedPhoto(uri, metadata)) }
+        _uiState.update {
+            it.copy(photos = it.photos + CapturedPhoto(uri, metadata, aiAnalyzing = true))
+        }
+        viewModelScope.launch(Dispatchers.Default) {
+            val result = floodImageClassifier.classify(uri)
+            _uiState.update { state ->
+                state.copy(
+                    photos = state.photos.map { photo ->
+                        if (photo.uri == uri) {
+                            photo.copy(aiAnalysis = result, aiAnalyzing = false)
+                        } else photo
+                    }
+                )
+            }
+        }
     }
 
     fun removePhoto(uri: Uri) = _uiState.update { state ->
         state.copy(photos = state.photos.filterNot { it.uri == uri })
+    }
+
+    override fun onCleared() {
+        floodImageClassifier.close()
+        super.onCleared()
     }
 
     fun setDescription(text: String) = _uiState.update { it.copy(description = text) }
@@ -287,6 +314,10 @@ class ReportViewModel @Inject constructor(
             val photos = _uiState.value.photos
             if (photos.isEmpty()) {
                 _uiState.update { it.copy(message = "A live camera photo is required before submitting.") }
+                return@launch
+            }
+            if (photos.any { it.aiAnalysis?.canSubmit != true }) {
+                _uiState.update { it.copy(message = "The photo must pass the flood image check before it can be submitted.") }
                 return@launch
             }
             _uiState.update { it.copy(isSubmitting = true) }
