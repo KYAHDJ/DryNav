@@ -1,0 +1,4 @@
+# Copy this file to local.properties on your own computer.
+# Do not commit/share local.properties.
+MAPBOX_ACCESS_TOKEN=pk.your_mapbox_public_token_here
+sdk.dir=C:\\Users\\YOUR_WINDOWS_USERNAME\\AppData\\Local\\Android\\Sdk

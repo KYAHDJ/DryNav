@@ -1,0 +1,15 @@
+// Firebase Storage rules for DryNav flood report photos.
+// Deploy through Firebase Console/CLI after reviewing for your project.
+// The Android app uploads to: flood_photos/{randomId}.jpg
+
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /flood_photos/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+                    && request.resource.size < 10 * 1024 * 1024
+                    && request.resource.contentType.matches('image/.*');
+    }
+  }
+}
